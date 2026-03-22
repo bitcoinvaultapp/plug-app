@@ -2,52 +2,81 @@
 
 **Programmable Locking UTXO Gateway**
 
-Bitcoin Script contracts. Ledger signed. No custody.
+Bitcoin smart contracts signed by your Ledger. Not a wallet — a programmability tool. You keep custody. The Ledger signs. The blockchain enforces.
 
 ---
 
 ### What is PLUG?
 
-PLUG is a Bitcoin programmability tool, not a wallet. It lets you create smart contract transactions on Bitcoin's base layer, signed exclusively by your Ledger hardware wallet. Your keys never leave the device.
+PLUG lets you create and spend complex Bitcoin transactions that are enforced by the network, not by trust. Your Ledger hardware wallet signs every transaction. Private keys never leave the device.
 
-### Features
+### Contracts
 
-- **Time-Lock Vaults** `CLTV` Lock sats until a future block
-- **Inheritance** `CSV` Heir access after inactivity
-- **Hash Time-Lock** `HTLC` Conditional payments with SHA256 preimage
-- **Payment Channels** `2-of-2` Multisig with timeout refund
-- **Multisig Pool** `M-of-N` Shared custody
-- **P2P Atomic Swap** `HTLC x 2` Trustless exchange, no intermediary
-- **CoinJoin** `PSBT` Collaborative transactions for privacy
-- **OP_RETURN** `DATA` Embed data on the blockchain
-- **Taproot** `P2TR` Multi-key contracts with script-path spending
+| Contract | Opcode | Description |
+|----------|--------|-------------|
+| **Vault** | `OP_CHECKLOCKTIMEVERIFY` | Lock sats until a future block height |
+| **Inheritance** | `OP_CHECKSEQUENCEVERIFY` | Heir access after relative timelock |
+| **HTLC** | `OP_SHA256 + CLTV` | Hash time-locked conditional payments |
+| **Channel** | `OP_CHECKMULTISIG + CLTV` | 2-of-2 with timeout refund |
+| **Pool** | `OP_CHECKMULTISIG` | M-of-N shared custody |
+| **Atomic Swap** | `HTLC x 2` | Trustless P2P exchange via paired HTLCs |
+| **CoinJoin** | `P2WPKH` | Serverless collaborative transactions |
+| **OP_RETURN** | `OP_RETURN` | Embed data on the blockchain |
+
+P2WSH (SegWit v0) + P2TR (Taproot). All scripts match the Ledger's miniscript compiler byte-for-byte.
 
 ### Architecture
 
-- Native iOS (Swift / SwiftUI)
-- Ledger signing via BLE (Nano X / Stax / Flex)
-- V2 merkleized PSBT protocol
-- P2WSH and P2TR script construction
-- Mempool.space API
-- No server, no token, no custody
+```
+iPhone
+  |
+  | Arti (embedded Tor)
+  |
+  v
+.onion ─── Electrs REST ─── Bitcoin Core
+            (your VPS)        (full node)
+```
+
+Two modes:
+- **mempool.space** via Tor .onion (default)
+- **Personal node** — your own Bitcoin Core + Electrs, zero third-party exposure
 
 ### Security
 
-- Zero private keys on device, only xpubs
-- Ledger signs every transaction
-- Address rotation, never reuse spent-from addresses
-- Coin control for UTXO selection
-- Encrypted backups (AES-256-GCM + PBKDF2)
-- Optional Tor routing
+| | |
+|---|---|
+| **Keys** | Zero on device. Only xpubs. Ledger signs everything. |
+| **Network** | All queries via embedded Tor (Arti). Broadcast with retry. |
+| **Storage** | Keychain hardened. AES-256-GCM encrypted backups. |
+| **Privacy** | CoinJoin, coin control, address rotation, UTXO shuffling. |
+| **Telemetry** | Zero. No analytics, no crash reporters, no tracking SDKs. |
+| **Dependencies** | One: `secp256k1.swift`. |
+
+### Stack
+
+| Layer | Technology |
+|-------|-----------|
+| App | Swift, SwiftUI, MVVM + Swift Concurrency |
+| Crypto | libsecp256k1 via GigaBitcoin/secp256k1.swift |
+| Signing | Ledger V2 merkleized PSBT (BLE, CLA=0xE1) |
+| Tor | Arti (Rust) compiled as iOS static library |
+| Node | Bitcoin Core + Electrs (Docker) |
+| Learn | Mastering Bitcoin 3rd Ed. (offline ebook) |
+
+### BIP Compliance
+
+BIP32, BIP44, BIP65, BIP68, BIP84, BIP86, BIP112, BIP125, BIP141, BIP173, BIP174, BIP327, BIP340, BIP341, BIP342, BIP350, BIP371.
+
+All implementations audited. Zero violations.
 
 ### Status
 
-Testnet4 launching soon.
+Testnet. Mainnet coming.
 
 ### Links
 
-- Website: [bitcoin-plug.com](https://bitcoin-plug.com)
-- Twitter: [@seeduser99](https://x.com/seeduser99)
+- [bitcoin-plug.com](https://bitcoin-plug.com)
+- [@seeduser99](https://x.com/seeduser99)
 
 ---
 
