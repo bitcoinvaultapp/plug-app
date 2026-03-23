@@ -2,15 +2,50 @@
 
 **Programmable Locking UTXO Gateway**
 
-Bitcoin smart contracts signed by your Ledger. Not a wallet, a programmability tool. You keep custody. The Ledger signs. The blockchain enforces.
+Bitcoin smart contracts signed by your Ledger. Open source. Sovereign. You bring your own node.
 
----
+## Requirements
 
-### What is PLUG?
+1. **Ledger hardware wallet** (Nano X, Stax, Flex) with Bitcoin app
+2. **Your own Bitcoin node** (Bitcoin Core + Electrs) accessible via Tor .onion
+3. **iPhone** running PLUG
 
-PLUG lets you create and spend complex Bitcoin transactions that are enforced by the network, not by trust. Your Ledger hardware wallet signs every transaction. Private keys never leave the device.
+No third-party servers. No custodians. No clearnet. All traffic goes through Tor to your own infrastructure.
 
-### Contracts
+## Quick Start
+
+### 1. Deploy your node
+
+```bash
+git clone https://github.com/bitcoinvaultapp/PLUG.git
+cd PLUG/plug-node
+docker compose up -d
+```
+
+This starts Bitcoin Core + Electrs + Tor hidden service. Wait for Bitcoin Core to sync (~1-3 days for mainnet). Get your `.onion` address:
+
+```bash
+docker exec plug-tor cat /var/lib/tor/hidden_service/electrs/hostname
+```
+
+### 2. Build the app
+
+```bash
+cd PLUG
+# Build Tor library (first time only)
+cd plug-tor && ./build-ios.sh && cd ..
+# Build and run on device
+xcodebuild -scheme PLUG -configuration Debug build
+```
+
+### 3. Connect
+
+1. Open the app, connect your Ledger via Bluetooth
+2. Go to Settings > Personal Node
+3. Paste your `.onion` address
+4. Test connection (should show block height)
+
+## Contracts
 
 | Contract | Opcode | Description |
 |----------|--------|-------------|
@@ -23,9 +58,9 @@ PLUG lets you create and spend complex Bitcoin transactions that are enforced by
 | **CoinJoin** | `P2WPKH` | Serverless collaborative transactions |
 | **OP_RETURN** | `OP_RETURN` | Embed data on the blockchain |
 
-P2WSH (SegWit v0) + P2TR (Taproot). All scripts match the Ledger's miniscript compiler byte-for-byte.
+P2WPKH (SegWit v0) + P2TR (Taproot). All scripts match the Ledger's miniscript compiler byte-for-byte.
 
-### Architecture
+## Architecture
 
 ```
 iPhone
@@ -34,25 +69,72 @@ iPhone
   |
   v
 .onion ─── Electrs REST ─── Bitcoin Core
-            (your VPS)        (full node)
+            (your node)       (your blockchain)
 ```
 
-Two modes:
-- **mempool.space** via Tor .onion (default)
-- **Personal node** your own Bitcoin Core + Electrs, zero third-party exposure
+All wallet queries (addresses, UTXOs, transactions, fees, broadcast) go to your personal node via Tor. Price and difficulty data are fetched from mempool.space .onion.
 
-### Security
+Zero clearnet. Zero third-party wallet exposure.
+
+## Security
 
 | | |
 |---|---|
 | **Keys** | Zero on device. Only xpubs. Ledger signs everything. |
-| **Network** | All queries via embedded Tor (Arti). Broadcast with retry. |
+| **Network** | All traffic via embedded Tor (Arti). No clearnet. |
+| **Node** | Your own Bitcoin Core + Electrs. No third-party balance exposure. |
 | **Storage** | Keychain hardened. AES-256-GCM encrypted backups. |
-| **Privacy** | CoinJoin, coin control, address rotation, UTXO shuffling. |
+| **Privacy** | CoinJoin, Stonewall, coin control, address rotation, UTXO shuffling. |
 | **Telemetry** | Zero. No analytics, no crash reporters, no tracking SDKs. |
 | **Dependencies** | One: `secp256k1.swift`. |
 
-### Stack
+## Node Deployment Guide
+
+### Requirements
+
+- VPS or Raspberry Pi with 1TB+ storage
+- Docker and Docker Compose
+- ~1-3 days for initial blockchain sync
+
+### Docker Compose
+
+The `plug-node/docker-compose.yml` runs:
+
+| Service | Purpose |
+|---------|---------|
+| `bitcoind` | Bitcoin Core full node |
+| `electrs` | Address indexer (Electrs REST API) |
+| `tor` | Tor hidden service exposing Electrs |
+
+### Configuration
+
+Edit `plug-node/bitcoin.conf` for your setup. Default is mainnet with 4GB dbcache.
+
+### Monitoring
+
+A systemd watchdog (`plug-watchdog.timer`) checks containers every 2 minutes and auto-restarts if needed. Logs at `/var/log/plug-node-watchdog.log`.
+
+### Endpoints
+
+Electrs REST API (no `/api` prefix):
+
+```
+/blocks/tip/height          Block height
+/address/{addr}/utxo        UTXOs
+/address/{addr}/txs         Transactions
+/tx/{txid}                  Transaction details
+/tx/{txid}/hex              Raw transaction
+/fee-estimates              Fee rate estimates
+/tx (POST)                  Broadcast
+```
+
+## BIP Compliance
+
+BIP32, BIP44, BIP65, BIP68, BIP84, BIP86, BIP112, BIP125, BIP141, BIP173, BIP174, BIP327, BIP340, BIP341, BIP342, BIP350, BIP371.
+
+All implementations audited. Zero violations.
+
+## Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -63,21 +145,11 @@ Two modes:
 | Node | Bitcoin Core + Electrs (Docker) |
 | Learn | Mastering Bitcoin 3rd Ed. (offline ebook) |
 
-### BIP Compliance
-
-BIP32, BIP44, BIP65, BIP68, BIP84, BIP86, BIP112, BIP125, BIP141, BIP173, BIP174, BIP327, BIP340, BIP341, BIP342, BIP350, BIP371.
-
-All implementations audited. Zero violations.
-
-### Status
-
-Testnet. Mainnet coming.
-
-### Links
+## Links
 
 - [bitcoin-plug.com](https://bitcoin-plug.com)
 - [@seeduser99](https://x.com/seeduser99)
 
 ---
 
-*Not your keys, not your coins. Not your script, not your rules.*
+*Not your keys, not your coins. Not your script, not your rules. Not your node, not your privacy.*
